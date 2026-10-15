@@ -125,8 +125,8 @@ section.s { padding-block: 64px; border-top: 1px solid var(--line); }
 .chip b { display: block; color: var(--fg); font-size: 14px; }
 .chip i { flex: none; width: 30px; height: 30px; border-radius: 8px; display: grid; place-items: center; background: var(--gold-soft); font-style: normal; }
 .chip i svg { width: 17px; height: 17px; fill: none; stroke: var(--gold-2); stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
-.chip.c1 { left: 0; top: 16%; transform: translateZ(80px); }
-.chip.c2 { right: -2%; top: 46%; transform: translateZ(110px); animation-delay: -2s; }
+.chip.c1 { right: -2%; top: 66%; transform: translateZ(80px); }
+.chip.c2 { right: -2%; top: 38%; transform: translateZ(110px); animation-delay: -2s; }
 .chip.c3 { left: 4%; bottom: 12%; transform: translateZ(60px); animation-delay: -4s; }
 @keyframes floaty { from { translate: 0 -6px; } to { translate: 0 8px; } }
 
@@ -137,7 +137,7 @@ section.s { padding-block: 64px; border-top: 1px solid var(--line); }
   .hscene { height: 470px; margin-top: 8px; }
   .hphone { width: 215px; margin-left: -107px; }
   .chip { font-size: 12px; padding: 9px 11px; } .chip b { font-size: 13px; } .chip i { width: 26px; height: 26px; }
-  .chip.c1 { left: 0; top: 10%; } .chip.c2 { right: 0; top: 48%; } .chip.c3 { left: 0; bottom: 8%; }
+  .chip.c1 { left: auto; right: 0; top: 64%; } .chip.c2 { right: 0; top: 36%; } .chip.c3 { left: 0; bottom: 6%; }
 }
 
 /* ===== 2. antes x depois ===== */
@@ -203,7 +203,9 @@ section.s { padding-block: 64px; border-top: 1px solid var(--line); }
 
 /* ===== 3. na prática: carrossel ===== */
 .car { position: relative; }
-.track { display: flex; gap: 18px; overflow-x: auto; scroll-snap-type: x mandatory; scroll-behavior: smooth; padding: 4px 2px 18px; scrollbar-width: none; overscroll-behavior-x: contain; }
+.track { display: flex; gap: 18px; overflow-x: auto; scroll-snap-type: x mandatory; scroll-behavior: smooth; padding: 4px 2px 18px; scrollbar-width: none; overscroll-behavior-x: contain; touch-action: pan-x pan-y; -webkit-overflow-scrolling: touch; cursor: grab; user-select: none; -webkit-user-select: none; }
+.track.drag { cursor: grabbing; scroll-snap-type: none; scroll-behavior: auto; }
+.track img { -webkit-user-drag: none; user-select: none; pointer-events: none; }
 .track::-webkit-scrollbar { display: none; }
 .slide { flex: 0 0 min(370px, 82%); scroll-snap-align: start; margin: 0; background: var(--surface); border: 1px solid var(--line); border-radius: 16px; overflow: hidden; display: flex; flex-direction: column; }
 .slide .im { background: #fff; aspect-ratio: 4 / 3; overflow: hidden; display: grid; place-items: center; }
@@ -868,6 +870,34 @@ var REDUZ = window.matchMedia && window.matchMedia('(prefers-reduced-motion: red
     pv.addEventListener('click', function () { vai(idx() - 1); });
     nx.addEventListener('click', function () { vai(idx() + 1); });
     tr.addEventListener('scroll', function () { window.requestAnimationFrame(upd); }, { passive: true });
+    // arrastar com o mouse (no celular o próprio navegador já arrasta com o dedo)
+    var down = false, x0 = 0, s0 = 0, moved = 0;
+    tr.addEventListener('pointerdown', function (e) {
+      if (e.pointerType !== 'mouse' || e.button !== 0) return;
+      down = true; moved = 0; x0 = e.clientX; s0 = tr.scrollLeft; tr.classList.add('drag');
+      try { tr.setPointerCapture(e.pointerId); } catch (er) {}
+    });
+    tr.addEventListener('pointermove', function (e) {
+      if (!down) return;
+      var dx = e.clientX - x0; moved = Math.max(moved, Math.abs(dx));
+      tr.scrollLeft = s0 - dx;
+    });
+    function solta(e) {
+      if (!down) return; down = false;
+      var dx = e.clientX - x0, base = idxFrom(s0);
+      tr.classList.remove('drag');
+      var passo = slides.length > 1 ? (slides[1].offsetLeft - slides[0].offsetLeft) : 1;
+      var n = Math.abs(dx) > 40 ? Math.max(1, Math.round(Math.abs(dx) / passo)) : 0;
+      vai(base + (dx < 0 ? n : -n));
+    }
+    function idxFrom(sl) {
+      var best = 0, d = Infinity;
+      slides.forEach(function (s, n) { var dd = Math.abs(s.offsetLeft - tr.offsetLeft - sl); if (dd < d) { d = dd; best = n; } });
+      return best;
+    }
+    tr.addEventListener('pointerup', solta);
+    tr.addEventListener('pointercancel', solta);
+    tr.addEventListener('click', function (e) { if (moved > 5) { e.preventDefault(); e.stopPropagation(); } }, true);
     atualiza.push(upd); upd();
   });
   var tabs = document.querySelectorAll('.tabs [data-car]');
